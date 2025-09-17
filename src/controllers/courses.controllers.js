@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
 
-
-
 const c = await prisma.course.findUnique({ where: { id }, include: { owner: true, department: true } });
 if (!c) return res.sendStatus(404);
 res.json(c);

@@ -1,25 +1,27 @@
-import { Response, NextFunction } from 'express';
-import { AuthRequest } from './auth.middleware';
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 
-export const requireRole = (...allowed) => {
+function authenticate(req, res, next) {
+const header = req.headers.authorization;
+if (!header) return res.sendStatus(401);
+const token = header.split(' ')[1];
+try {
+req.user = jwt.verify(token, process.env.JWT_SECRET);
+next();
+} catch (e) {
+return res.sendStatus(401);
+}
+}
+
+
+function requireRole(...roles) {
 return (req, res, next) => {
-const user = req.user;
-if (!user) return res.sendStatus(401);
-if (!allowed.includes(user.role)) return res.sendStatus(403);
+if (!req.user) return res.sendStatus(401);
+if (!roles.includes(req.user.role)) return res.sendStatus(403);
 next();
 };
-};
+}
 
 
-// object-level: check owner role for courses
-export const requireCourseOwnerOrAdmin = (getCourseOwnerId) => {
-return async (req, res, next    ) => {
-const user = req.user;
-if (!user) return res.sendStatus(401);
-if (user.role === 'ADMIN') return next();
-const ownerId = await getCourseOwnerId(req);
-if (ownerId && ownerId === user.userId) return next();
-return res.sendStatus(403);
-};
-};
+module.exports = { authenticate, requireRole };
