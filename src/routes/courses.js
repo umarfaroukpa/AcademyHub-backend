@@ -1,6 +1,6 @@
 const express = require('express');
-const pool = require('./db');
-const { authenticate, requireRole } = require('./rbac');
+const pool = require('../config/db');
+const { authenticate, requireRole } = require('../middleware/rbac.middleware');
 
 
 const router = express.Router();
