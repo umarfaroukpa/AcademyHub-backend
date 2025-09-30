@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const authRoutes = require('./src/routes/auth');
-const courseRoutes = require('./src/routes/courses');
+const authRoutes = require('./src/routes/AuthRoutes');
+const courseRoutes = require('./src/routes/CoursesRoutes');
 
 const app = express();
 
@@ -21,5 +21,5 @@ app.get('/', (req, res) => {
 app.use('/routes/auth', authRoutes);
 app.use('/routes/courses', courseRoutes);
 
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 app.listen(port, () => console.log(`Server running on port ${port}`));
