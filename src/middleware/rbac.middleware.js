@@ -14,6 +14,41 @@ return res.sendStatus(401);
 }
 }
 
+// Role-Based Access Control middleware
+const checkPermission = (resource, action) => {
+  return (req, res, next) => {
+    const userRole = req.user.role;
+    
+    // Define permissions for each role
+    const permissions = {
+      student: {
+        courses: ['read'],
+        enrollments: ['create', 'read_own'],
+        assignments: ['read', 'submit'],
+        submissions: ['create_own', 'read_own']
+      },
+      lecturer: {
+        courses: ['create', 'read', 'update_own', 'upload_syllabus'],
+        assignments: ['create', 'read', 'update', 'delete'],
+        submissions: ['read', 'grade']
+      },
+      admin: {
+        courses: ['create', 'read', 'update', 'delete'],
+        enrollments: ['read', 'update'],
+        users: ['create', 'read', 'update', 'delete']
+      }
+    };
+
+    const rolePermissions = permissions[userRole] || {};
+    const resourcePermissions = rolePermissions[resource] || [];
+
+    if (resourcePermissions.includes(action)) {
+      next();
+    } else {
+      res.status(403).json({ error: 'Insufficient permissions' });
+    }
+  };
+};
 
 function requireRole(...roles) {
 return (req, res, next) => {
@@ -24,4 +59,4 @@ next();
 }
 
 
-module.exports = { authenticate, requireRole };
+module.exports = { authenticate, requireRole, checkPermission };

@@ -1,18 +1,22 @@
 const express = require('express');
 const pool = require('../config/db');
-const { authenticate, requireRole } = require('../middleware/rbac.middleware');
+const uploads = require('../config/upload')
+const {checkPermission} = require('../middleware/permission.middleware')
+const { authenticateToken, requireRole } = require('../middleware/rbac.middleware');
+const { getCourses, createCourse, updateCourse, uploadSyllabus, getCourseById } = require('../controllers/course.controller');
+
 
 
 const router = express.Router();
 
 
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
 const result = await pool.query('SELECT * FROM courses');
 res.json(result.rows);
 });
 
 
-router.post('/', authenticate, requireRole('admin','instructor'), async (req, res) => {
+router.post('/', authenticateToken, requireRole('admin','instructor'), async (req, res) => {
 const { code, title, description } = req.body;
 const result = await pool.query(
 'INSERT INTO courses(code,title,description,lifecycle) VALUES($1,$2,$3,$4) RETURNING *',
@@ -43,6 +47,12 @@ const result = await pool.query(
 );
 res.json(result.rows[0]);
 });
+
+router.get('/:id', authenticateToken, getCourseById);
+router.post('/', authenticateToken, requireRole('lecturer', 'admin'), createCourse);
+router.put('/:id', authenticateToken, requireRole('lecturer', 'admin'), updateCourse);
+router.post('/:id/syllabus', authenticateToken, requireRole('lecturer'), upload.single('syllabus'), uploadSyllabus);
+
 
 
 module.exports = router;
