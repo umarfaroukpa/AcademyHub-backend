@@ -1,6 +1,6 @@
 const express = require('express');
-const { authenticateToken, requireRole } = require('../middleware/auth.middleware');
-const { enrollCourse, getEnrollments, updateEnrollment, getStudentEnrollments } = require('../controllers/enrollment.controller');
+const { authenticateToken, requireRole } = require('../middleware/auth.middileware');
+const { enrollCourse, getEnrollments, updateEnrollment, getStudentEnrollments } = require('../controllers/enrollment.controllers');
   
   
 const router = express.Router();

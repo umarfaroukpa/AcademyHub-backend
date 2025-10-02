@@ -1,7 +1,7 @@
 const express = require('express');
-const { authenticateToken, requireRole } = require('../middleware/auth.middleware');
+const { authenticateToken, requireRole } = require('../middleware/auth.middileware');
 const upload = require('../config/upload');
-const { submitAssignment, gradeSubmission, getSubmissions, getStudentSubmissions } = require('../controllers/submission.controller');
+const { submitAssignment, gradeSubmission, getSubmissions, getStudentSubmissions } = require('../controllers/submission.controllers');
 
   
 const router = express.Router();

@@ -1,6 +1,6 @@
 const express = require('express');
-const { authenticateToken, requireRole } = require('../middleware/auth.middleware');
-const { createAssignment, getAssignments, updateAssignment, deleteAssignment } = require('../controllers/assignment.controller');
+const { authenticateToken, requireRole } = require('../middleware/auth.middileware');
+const { createAssignment, getAssignments, updateAssignment, deleteAssignment } = require('../controllers/assigment.controllers');
 
   
 

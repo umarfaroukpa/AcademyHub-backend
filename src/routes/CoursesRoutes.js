@@ -1,58 +1,51 @@
 const express = require('express');
-const pool = require('../config/db');
-const uploads = require('../config/upload')
-const {checkPermission} = require('../middleware/permission.middleware')
-const { authenticateToken, requireRole } = require('../middleware/rbac.middleware');
-const { getCourses, createCourse, updateCourse, uploadSyllabus, getCourseById } = require('../controllers/course.controller');
-
-
+const { authenticateToken, requireRole } = require('../middleware/auth.middileware');
+const upload = require('../config/upload'); 
+const pool = require('../config/db'); 
+const { getCourseById, createCourse, updateCourse, transitionCourse } = require('../controllers/courses.controllers');
 
 const router = express.Router();
 
-
+// Get all courses - FIXED: Make sure this uses a proper function
 router.get('/', authenticateToken, async (req, res) => {
-const result = await pool.query('SELECT * FROM courses');
-res.json(result.rows);
+  try {
+    const result = await pool.query('SELECT * FROM courses');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get all courses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-
-router.post('/', authenticateToken, requireRole('admin','instructor'), async (req, res) => {
-const { code, title, description } = req.body;
-const result = await pool.query(
-'INSERT INTO courses(code,title,description,lifecycle) VALUES($1,$2,$3,$4) RETURNING *',
-[code, title, description, 'draft']
-);
-res.status(201).json(result.rows[0]);
-});
-
-
-router.put('/:id', authenticate, requireRole('admin','instructor'), async (req, res) => {
-const { code, title, description } = req.body;
-const result = await pool.query(
-'UPDATE courses SET code=$1,title=$2,description=$3 WHERE id=$4 RETURNING *',
-[code, title, description, req.params.id]
-);
-res.json(result.rows[0]);
-});
-
-
-router.post('/:id/transition', authenticate, requireRole('admin','instructor'), async (req, res) => {
-const { action } = req.body;
-const lifecycleMap = { submitForReview: 'pending_review', publish: 'published', archive: 'archived' };
-const newState = lifecycleMap[action];
-if (!newState) return res.status(400).json({ error: 'invalid action' });
-const result = await pool.query(
-'UPDATE courses SET lifecycle=$1 WHERE id=$2 RETURNING *',
-[newState, req.params.id]
-);
-res.json(result.rows[0]);
-});
-
+// Get course by ID - Make sure getCourseById is properly imported and is a function
 router.get('/:id', authenticateToken, getCourseById);
-router.post('/', authenticateToken, requireRole('lecturer', 'admin'), createCourse);
-router.put('/:id', authenticateToken, requireRole('lecturer', 'admin'), updateCourse);
-router.post('/:id/syllabus', authenticateToken, requireRole('lecturer'), upload.single('syllabus'), uploadSyllabus);
 
+// Create a course - Make sure createCourse is properly imported
+router.post('/', authenticateToken, requireRole('admin', 'instructor', 'lecturer'), createCourse);
 
+// Update a course - Make sure updateCourse is properly imported
+router.put('/:id', authenticateToken, requireRole('admin', 'instructor', 'lecturer'), updateCourse);
+
+// Transition course lifecycle
+router.post('/:id/transition', authenticateToken, requireRole('admin', 'instructor'), transitionCourse);
+
+// Upload syllabus
+router.post('/:id/syllabus', authenticateToken, requireRole('lecturer'), upload.single('syllabus'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const { id } = req.params;
+    const result = await pool.query(
+      'UPDATE courses SET syllabus_path = $1 WHERE id = $2 RETURNING *',
+      [req.file.path, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+    res.json({ message: 'Syllabus uploaded successfully', course: result.rows[0] });
+  } catch (error) {
+    console.error('Upload syllabus error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 module.exports = router;

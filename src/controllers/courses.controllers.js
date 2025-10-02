@@ -1,136 +1,169 @@
 const pool = require('../config/db');
 
-// Get course by ID with owner and department info
-async function getCourse(req, res) {
+const getCourses = async (req, res) => {
   try {
-    const { id } = req.params;
+    console.log('📚 getCourses - User role:', req.user.role);
     
-    const result = await pool.query(`
-      SELECT c.*, 
-             u.email as owner_email, u.full_name as owner_name,
-             d.name as department_name
-      FROM courses c
-      LEFT JOIN users u ON c.owner_id = u.id
-      LEFT JOIN departments d ON c.department_id = d.id
-      WHERE c.id = $1
-    `, [id]);
-    
-    if (result.rows.length === 0) {
-      return res.sendStatus(404);
+    let query = '';
+    let params = [];
+
+    if (req.user.role === 'student') {
+      query = `
+        SELECT c.*, u.name as lecturer_name, 
+               EXISTS(SELECT 1 FROM enrollments e WHERE e.course_id = c.id AND e.student_id = $1) as enrolled
+        FROM courses c 
+        JOIN users u ON c.lecturer_id = u.id 
+        WHERE c.status = 'active'
+      `;
+      params = [req.user.id];
+    } else if (req.user.role === 'lecturer') {
+      query = 'SELECT c.*, u.name as lecturer_name FROM courses c JOIN users u ON c.lecturer_id = u.id WHERE c.lecturer_id = $1';
+      params = [req.user.id];
+    } else {
+      query = 'SELECT c.*, u.name as lecturer_name FROM courses c JOIN users u ON c.lecturer_id = u.id';
     }
-    
-    const course = result.rows[0];
-    res.json({
-      ...course,
-      owner: course.owner_email ? {
-        email: course.owner_email,
-        name: course.owner_name
-      } : null,
-      department: course.department_name ? {
-        name: course.department_name
-      } : null
-    });
-  } catch (error) {
-    console.error('Get course error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-}
 
-async function createCourse(req, res) {
-  try {
-    const { code, title, description, departmentId } = req.body;
-    const ownerId = req.user.userId;
+    console.log('📚 Executing query for role:', req.user.role);
+    const result = await pool.query(query, params);
+    console.log('📚 Courses found:', result.rows.length);
     
-    const result = await pool.query(
-      'INSERT INTO courses (code, title, description, owner_id, department_id, lifecycle) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [code, title, description, ownerId, departmentId, 'DRAFT']
-    );
-    
-    res.status(201).json(result.rows[0]);
+    res.json(result.rows);
   } catch (error) {
-    console.error('Create course error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('🔴 getCourses error:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
-}
+};
 
-async function updateCourse(req, res) {
+const getCourseById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { code, title, description } = req.body;
-    
     const result = await pool.query(
-      'UPDATE courses SET code = $1, title = $2, description = $3 WHERE id = $4 RETURNING *',
-      [code, title, description, id]
+      'SELECT c.*, u.name as lecturer_name FROM courses c JOIN users u ON c.lecturer_id = u.id WHERE c.id = $1',
+      [req.params.id]
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Course not found' });
     }
-    
+
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Update course error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('🔴 getCourseById error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
-}
-
-// Lifecycle transition logic
-const transitions = {
-  DRAFT: ['PENDING_REVIEW', 'PUBLISHED'],
-  PENDING_REVIEW: ['DRAFT', 'PUBLISHED'],
-  PUBLISHED: ['ARCHIVED'],
-  ARCHIVED: []
 };
 
-async function transitionCourse(req, res) {
+const createCourse = async (req, res) => {
+  const { title, description } = req.body;
+
   try {
-    const { id } = req.params;
-    const { action } = req.body;
+    console.log('📚 createCourse - Lecturer:', req.user.id, 'Title:', title);
     
-    // Get current course
-    const courseResult = await pool.query('SELECT * FROM courses WHERE id = $1', [id]);
-    if (courseResult.rows.length === 0) {
-      return res.sendStatus(404);
-    }
-    
-    const course = courseResult.rows[0];
-    
-    // Map action to target state
-    const actionMap = {
-      submitForReview: 'PENDING_REVIEW',
-      publish: 'PUBLISHED',
-      archive: 'ARCHIVED',
-      saveDraft: 'DRAFT'
-    };
-    
-    const target = actionMap[action];
-    if (!target) {
-      return res.status(400).json({ error: 'unknown action' });
-    }
-    
-    const allowed = transitions[course.lifecycle];
-    if (!allowed.includes(target)) {
-      return res.status(400).json({ 
-        error: `can't transition ${course.lifecycle} -> ${target}` 
-      });
-    }
-    
-    // Update the lifecycle
     const result = await pool.query(
-      'UPDATE courses SET lifecycle = $1 WHERE id = $2 RETURNING *',
-      [target, id]
+      'INSERT INTO courses (title, description, lecturer_id) VALUES ($1, $2, $3) RETURNING *',
+      [title, description, req.user.id]
     );
     
+    console.log('📚 Course created:', result.rows[0]);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('🔴 createCourse error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+const updateCourse = async (req, res) => {
+  const { title, description } = req.body;
+
+  try {
+    let query = '';
+    let params = [];
+
+    if (req.user.role === 'lecturer') {
+      query = 'UPDATE courses SET title = $1, description = $2 WHERE id = $3 AND lecturer_id = $4 RETURNING *';
+      params = [title, description, req.params.id, req.user.id];
+    } else {
+      query = 'UPDATE courses SET title = $1, description = $2 WHERE id = $3 RETURNING *';
+      params = [title, description, req.params.id];
+    }
+
+    const result = await pool.query(query, params);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Course transition error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('🔴 updateCourse error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
-}
+};
+
+const transitionCourse = async (req, res) => {
+  const { status } = req.body;
+  const { id } = req.params;
+
+  try {
+    console.log('📚 transitionCourse - Course:', id, 'New status:', status);
+    
+    // Validate status
+    const validStatuses = ['draft', 'active', 'archived'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be draft, active, or archived' });
+    }
+
+    let query = '';
+    let params = [];
+
+    // Lecturers can only transition their own courses
+    if (req.user.role === 'lecturer') {
+      query = 'UPDATE courses SET status = $1 WHERE id = $2 AND lecturer_id = $3 RETURNING *';
+      params = [status, id, req.user.id];
+    } else {
+      // Admins and instructors can transition any course
+      query = 'UPDATE courses SET status = $1 WHERE id = $2 RETURNING *';
+      params = [status, id];
+    }
+
+    const result = await pool.query(query, params);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    console.log('📚 Course status updated:', result.rows[0]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('🔴 transitionCourse error:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+};
+
+const uploadSyllabus = async (req, res) => {
+  try {
+    console.log('📚 uploadSyllabus - Course:', req.params.id, 'File:', req.file?.filename);
+    
+    const result = await pool.query(
+      'UPDATE courses SET syllabus_url = $1 WHERE id = $2 AND lecturer_id = $3 RETURNING *',
+      [req.file.filename, req.params.id, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('🔴 uploadSyllabus error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
 
 module.exports = {
-  getCourse,
+  getCourses,
+  getCourseById,
   createCourse,
   updateCourse,
+  uploadSyllabus,
   transitionCourse
 };

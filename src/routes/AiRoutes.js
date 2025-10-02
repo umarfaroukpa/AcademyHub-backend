@@ -1,6 +1,6 @@
 const express = require('express');
-const { authenticateToken, requireRole } = require('../middleware/auth.middleware');
-const { getCourseRecommendations, generateSyllabus } = require('../controllers/ai.controller');
+const { authenticateToken, requireRole } = require('../middleware/auth.middileware');
+const { getCourseRecommendations, generateSyllabus } = require('../controllers/ai.controllers');
 const router = express.Router();
 
 
