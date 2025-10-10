@@ -37,6 +37,53 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// In your courses.routes.js - add this route
+router.post('/:id/enroll', authenticateToken, requireRole('student'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentId = req.user.id;
+
+    console.log('🎯 Enrollment request - Course:', id, 'Student:', studentId);
+
+    // Check if course exists
+    const courseResult = await pool.query('SELECT * FROM courses WHERE id = $1', [id]);
+    if (courseResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await pool.query(
+      'SELECT * FROM enrollments WHERE student_id = $1 AND course_id = $2',
+      [studentId, id]
+    );
+
+    if (existingEnrollment.rows.length > 0) {
+      return res.status(400).json({ error: 'Already enrolled in this course' });
+    }
+
+    // Use 'active' status as defined in your database schema
+    const result = await pool.query(
+      'INSERT INTO enrollments (student_id, course_id, status) VALUES ($1, $2, $3) RETURNING *',
+      [studentId, id, 'active'] // Changed from 'pending' to 'active'
+    );
+
+    console.log('✅ Enrollment created:', result.rows[0]);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('❌ Enrollment error:', error);
+    
+    // Check constraint violation
+    if (error.code === '23514') { 
+      return res.status(400).json({ 
+        error: 'Invalid enrollment status',
+        message: 'The enrollment status must be one of: active, completed, dropped, withdrawn'
+      });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get courses by lecturer (for the logged-in lecturer)
 router.get('/my-courses', authenticateToken, requireRole('lecturer', 'instructor'), async (req, res) => {
   try {
