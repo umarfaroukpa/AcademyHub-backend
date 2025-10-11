@@ -1,7 +1,7 @@
 // routes/adminStats.js
 const express = require('express');
 const pool = require('../config/db');
-const { authenticateToken, requireRole } = require('../middleware/auth.middleware');
+const { authenticateToken, requireRole } = require('../middleware/auth.middileware');
 
 const router = express.Router();
 

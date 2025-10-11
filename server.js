@@ -35,9 +35,9 @@ app.use('/api/enrollments', require('./src/routes/EnrollmentsRoutes'));
 app.use('/api/assignments', require('./src/routes/AssignmentRoutes'));
 app.use('/api/submissions', require('./src/routes/SubmissionRoutes'));
 app.use('/api/ai', require('./src/routes/AiRoutes'));
-app.use('/api/users', require('./routes/userStats'));
-app.use('/api/lecturers', require('./routes/lecturerStats'));
-app.use('/api/admin', require('./routes/adminStats'));
+app.use('/api/users', require('./src/routes/UserStats'));
+app.use('/api/lecturers', require('./src/routes/LecturerStats'));
+app.use('/api/admin', require('./src/routes/AdminStats'));
 
 // Health check
 app.get('/api/health', (req, res) => {

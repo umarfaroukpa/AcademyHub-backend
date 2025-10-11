@@ -1,7 +1,6 @@
-// routes/lecturerStats.js
 const express = require('express');
 const pool = require('../config/db');
-const { authenticateToken } = require('../middleware/auth.middleware');
+const { authenticateToken } = require('../middleware/auth.middileware');
 
 const router = express.Router();
 
