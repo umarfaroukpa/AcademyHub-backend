@@ -1,22 +1,26 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { login, signup } = require('../controllers/auth.controller');
+const { googleSignIn, validateGoogleSignIn, checkEmail } = require('../controllers/googleAuth.controller');
 
 const router = express.Router();
 
-//Rate limiting to prevent brute force attacks
+// Rate limiting
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: { error: 'Too many authentication attempts, please try again later' },
+  windowMs: 15 * 60 * 1000,
+  max: 10, // Increased for OAuth flows
+  message: { error: 'Too many authentication attempts' },
   standardHeaders: true,
-  legacyHeaders: false,
 });
 
-//Apply rate limiting to auth routes
 router.use(authLimiter);
 
+// Existing routes
 router.post('/login', login);
 router.post('/signup', signup);
+
+// Google OAuth routes - FIXED: Use validation middleware properly
+router.post('/google/signin', validateGoogleSignIn, googleSignIn);
+router.post('/check-email', checkEmail);
 
 module.exports = router;

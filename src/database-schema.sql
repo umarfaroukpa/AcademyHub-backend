@@ -10,10 +10,10 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
     avatar_url VARCHAR(500)
+    google_id VARCHAR(100) UNIQUE,
+    auth_provider VARCHAR(20) DEFAULT 'email' CHECK (auth_provider IN ('email', 'google')),
+    email_verified BOOLEAN DEFAULT false;
 );
-
-ALTER TABLE users 
-ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500);
 
 -- Create courses table
 CREATE TABLE IF NOT EXISTS courses (
@@ -111,6 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions(assignment_
 CREATE INDEX IF NOT EXISTS idx_submissions_student ON submissions(student_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_course ON attendance(course_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id);
+CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
