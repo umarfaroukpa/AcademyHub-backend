@@ -7,8 +7,13 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'lecturer', 'admin')),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+    avatar_url VARCHAR(500)
 );
+
+ALTER TABLE users 
+ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500);
 
 -- Create courses table
 CREATE TABLE IF NOT EXISTS courses (
@@ -22,7 +27,8 @@ CREATE TABLE IF NOT EXISTS courses (
     credits INTEGER DEFAULT 3,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
 );
 
 -- Create enrollments table
@@ -33,7 +39,9 @@ CREATE TABLE IF NOT EXISTS enrollments (
     enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'dropped', 'withdrawn')),
     final_grade DECIMAL(5,2),
-    UNIQUE(student_id, course_id)
+    UNIQUE(student_id, course_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create assignments table
@@ -125,6 +133,11 @@ CREATE TRIGGER update_assignments_updated_at BEFORE UPDATE ON assignments
 
 CREATE TRIGGER update_announcements_updated_at BEFORE UPDATE ON announcements
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER IF NOT EXISTS update_enrollments_updated_at 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
 
 -- Insert test data
 -- Test users (password is 'test123' for all, hashed with bcrypt)

@@ -53,21 +53,35 @@ const getCourseById = async (req, res) => {
 };
 
 const createCourse = async (req, res) => {
-  const { title, description } = req.body;
+  const { code, title, description, credits, max_students } = req.body;
 
   try {
-    console.log('📚 createCourse - Lecturer:', req.user.id, 'Title:', title);
+    console.log('📚 createCourse - Lecturer:', req.user.id, 'Code:', code, 'Title:', title);
     
     const result = await pool.query(
-      'INSERT INTO courses (title, description, lecturer_id) VALUES ($1, $2, $3) RETURNING *',
-      [title, description, req.user.id]
+      `INSERT INTO courses (
+        code, 
+        title, 
+        description, 
+        lecturer_id, 
+        credits, 
+        max_students
+      ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        code, 
+        title, 
+        description, 
+        req.user.id, 
+        credits || 3, 
+        max_students || 50
+      ]
     );
     
     console.log('📚 Course created:', result.rows[0]);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('🔴 createCourse error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 };
 

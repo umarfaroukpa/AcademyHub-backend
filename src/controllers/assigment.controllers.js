@@ -1,5 +1,54 @@
 const pool = require('../config/db');
 
+const getUpcomingAssignments = async (req, res) => {
+  try {
+    let query = '';
+    let params = [];
+
+    if (req.user.role === 'student') {
+      query = `
+        SELECT a.*, c.title as course_name 
+        FROM assignments a
+        JOIN courses c ON a.course_id = c.id
+        JOIN enrollments e ON e.course_id = c.id
+        WHERE e.student_id = $1 
+          AND e.status = 'active'
+          AND a.due_date > NOW()
+        ORDER BY a.due_date ASC
+        LIMIT 10
+      `;
+      params = [req.user.id];
+    } else if (req.user.role === 'lecturer') {
+      query = `
+        SELECT a.*, c.title as course_name 
+        FROM assignments a
+        JOIN courses c ON a.course_id = c.id
+        WHERE c.lecturer_id = $1 
+          AND a.due_date > NOW()
+        ORDER BY a.due_date ASC
+        LIMIT 10
+      `;
+      params = [req.user.id];
+    } else {
+      query = `
+        SELECT a.*, c.title as course_name 
+        FROM assignments a
+        JOIN courses c ON a.course_id = c.id
+        WHERE a.due_date > NOW()
+        ORDER BY a.due_date ASC
+        LIMIT 10
+      `;
+    }
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching upcoming assignments:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Your existing functions remain the same...
 const getAssignments = async (req, res) => {
   try {
     let query = '';
@@ -11,7 +60,7 @@ const getAssignments = async (req, res) => {
         FROM assignments a
         JOIN courses c ON a.course_id = c.id
         JOIN enrollments e ON e.course_id = c.id
-        WHERE e.student_id = $1 AND e.status = 'approved'
+        WHERE e.student_id = $1 AND e.status = 'active'
       `;
       params = [req.user.id];
     } else if (req.user.role === 'lecturer') {
@@ -128,6 +177,7 @@ const deleteAssignment = async (req, res) => {
 
 module.exports = {
   getAssignments,
+  getUpcomingAssignments, 
   createAssignment,
   updateAssignment,
   deleteAssignment

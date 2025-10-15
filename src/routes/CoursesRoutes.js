@@ -11,7 +11,7 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     console.log('📚 Fetching all courses...');
-    console.log('User:', req.user); // Log the authenticated user
+    console.log('User:', req.user); 
     
     const result = await pool.query('SELECT * FROM courses ORDER BY created_at DESC');
     
