@@ -14,6 +14,7 @@ const verifyGoogleToken = async (token) => {
     });
     return ticket.getPayload();
   } catch (error) {
+    console.error('🔴 Google token verification failed:', error);
     throw new Error('Invalid Google token');
   }
 };
@@ -34,21 +35,32 @@ const googleSignIn = async (req, res) => {
 
     const { googleToken, role = 'student' } = req.body;
 
+    console.log('🔐 Google Sign-In attempt for role:', role);
+
     // Verify Google token
     const googleUser = await verifyGoogleToken(googleToken);
     
     const { sub: googleId, email, name, picture } = googleUser;
 
-    // Check if user already exists with this Google ID
-    let user = await pool.query(
-      'SELECT * FROM users WHERE google_id = $1 OR email = $2',
-      [googleId, email.toLowerCase()]
-    );
+    console.log('✅ Google user verified:', { email, name, googleId });
 
-    if (user.rows.length > 0) {
-      // User exists - update last login and return user data
-      user = user.rows[0];
+    // Check if user already exists with this Google ID or email
+    let user;
+    try {
+      const userResult = await pool.query(
+        'SELECT * FROM users WHERE google_id = $1 OR email = $2',
+        [googleId, email.toLowerCase()]
+      );
+      user = userResult.rows[0];
+    } catch (dbError) {
+      console.error('🔴 Database error checking user:', dbError);
+      throw dbError;
+    }
+
+    if (user) {
+      console.log('✅ User exists, updating last login:', user.email);
       
+      // User exists - update last login and return user data
       await pool.query(
         'UPDATE users SET last_login = CURRENT_TIMESTAMP, email_verified = true WHERE id = $1',
         [user.id]
@@ -73,44 +85,62 @@ const googleSignIn = async (req, res) => {
       });
     }
 
+    console.log('👤 Creating new user with Google OAuth');
+
     // New user - create account with selected role
-    const result = await pool.query(
-      `INSERT INTO users (
-        email, name, role, google_id, auth_provider, 
-        email_verified, is_active, avatar_url
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-      RETURNING id, email, name, role, avatar_url, auth_provider`,
-      [
-        email.toLowerCase(),
-        name,
-        role,
-        googleId,
-        'google',
-        true,
-        true,
-        picture
-      ]
-    );
+    try {
+      const result = await pool.query(
+        `INSERT INTO users (
+          email, name, role, google_id, auth_provider, 
+          email_verified, is_active, avatar_url, password_hash
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+        RETURNING id, email, name, role, avatar_url, auth_provider`,
+        [
+          email.toLowerCase(),
+          name,
+          role,
+          googleId,
+          'google',
+          true,
+          true,
+          picture,
+          null  
+        ]
+      );
 
-    user = result.rows[0];
+      user = result.rows[0];
+      console.log('✅ New user created via Google OAuth:', user.email);
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
 
-    res.status(201).json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatar_url: user.avatar_url,
-        auth_provider: user.auth_provider
+      res.status(201).json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          avatar_url: user.avatar_url,
+          auth_provider: user.auth_provider
+        }
+      });
+
+    } catch (insertError) {
+      console.error('🔴 Error creating user:', insertError);
+      
+      if (insertError.code === '23502') { 
+        return res.status(500).json({ 
+          error: 'Database constraint error',
+          message: 'password_hash cannot be null. Please run: ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;'
+        });
       }
-    });
+      
+      throw insertError;
+    }
 
   } catch (error) {
     console.error('🔴 Google Sign-In error:', error);
@@ -119,7 +149,18 @@ const googleSignIn = async (req, res) => {
       return res.status(401).json({ error: 'Invalid Google token' });
     }
     
-    res.status(500).json({ error: 'Google authentication failed' });
+    if (error.code === '23502') {
+      return res.status(500).json({ 
+        error: 'Database configuration error',
+        message: 'password_hash column requires a value but Google OAuth users dont have passwords.',
+        solution: 'Run: ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Google authentication failed',
+      details: error.message 
+    });
   }
 };
 

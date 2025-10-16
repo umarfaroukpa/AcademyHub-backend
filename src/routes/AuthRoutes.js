@@ -19,7 +19,7 @@ router.use(authLimiter);
 router.post('/login', login);
 router.post('/signup', signup);
 
-// Google OAuth routes - FIXED: Use validation middleware properly
+// Google OAuth routes -  validation middleware
 router.post('/google/signin', validateGoogleSignIn, googleSignIn);
 router.post('/check-email', checkEmail);
 

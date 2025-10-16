@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     google_id VARCHAR(100) UNIQUE,
     auth_provider VARCHAR(20) DEFAULT 'email' CHECK (auth_provider IN ('email', 'google')),
     email_verified BOOLEAN DEFAULT false;
+    password_hash DROP NOT NULL;
 );
 
 -- Create courses table
@@ -152,4 +153,33 @@ ON CONFLICT (email) DO NOTHING;
 DO $$
 BEGIN
     RAISE NOTICE 'Database schema created successfully!';
+
+    -- Add google_id column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'users' AND column_name = 'google_id') THEN
+        ALTER TABLE users ADD COLUMN google_id VARCHAR(100) UNIQUE;
+        RAISE NOTICE 'Added google_id column to users table';
+    END IF;
+
+    -- Add auth_provider column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'users' AND column_name = 'auth_provider') THEN
+        ALTER TABLE users ADD COLUMN auth_provider VARCHAR(20) DEFAULT 'email' 
+        CHECK (auth_provider IN ('email', 'google'));
+        RAISE NOTICE 'Added auth_provider column to users table';
+    END IF;
+
+    -- Add email_verified column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'users' AND column_name = 'email_verified') THEN
+        ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT false;
+        RAISE NOTICE 'Added email_verified column to users table';
+    END IF;
+
+    -- Create index for google_id if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes 
+                  WHERE tablename = 'users' AND indexname = 'idx_users_google_id') THEN
+        CREATE INDEX idx_users_google_id ON users(google_id);
+        RAISE NOTICE 'Created idx_users_google_id index';
+    END IF;
 END $$;
