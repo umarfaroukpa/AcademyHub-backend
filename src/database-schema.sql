@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     google_id VARCHAR(100) UNIQUE,
     auth_provider VARCHAR(20) DEFAULT 'email' CHECK (auth_provider IN ('email', 'google')),
     email_verified BOOLEAN DEFAULT false;
-    password_hash DROP NOT NULL;
+    
 );
 
 -- Create courses table
