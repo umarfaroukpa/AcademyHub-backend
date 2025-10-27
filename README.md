@@ -1,73 +1,103 @@
 # Academic Management Platform Backend
 
-This is the backend service for the Academic Management Platform, providing RESTful APIs for user authentication, course management, assignments, submissions, and more. Built with Node.js and Express, it integrates with a SQL database and supports Docker deployment.
+This is the backend for the Academic Management Platform (AcademyHub-backend), designed to manage users, courses, assignments, enrollments, submissions, and more for academic institutions.
 
 ## Features
-- User authentication (including Google OAuth)
+
+- User authentication (JWT, Google OAuth)
 - Role-based access control (RBAC)
 - Course and enrollment management
 - Assignment creation and submission
-- AI-powered features (see `ai.controllers.js`)
-- Admin and lecturer statistics endpoints
+- AI-powered features (e.g., grading, feedback)
+- Admin and lecturer statistics
+- File uploads (avatars, assignments)
 
-## Project Structure
+## Tech Stack
 
-├── src/
-│   ├── config/           # Configuration files (DB, uploads)
-│   ├── controllers/      # API controllers
-│   ├── libs/             # Utility libraries (bcrypt, jwt)
-│   ├── middleware/       # Auth and permission middleware
-│   ├── register/         # Auth routes (login, signup)
-│   ├── routes/           # API route definitions
-│   └── database-schema.sql # SQL schema
-├── database/
-│   └── migrate.js        # DB migration script
-├── uploads/              # Uploaded files (avatars, etc.)
-├── server.js             # Entry point
-├── Dockerfile            # Docker configuration
-├── docker-compose.yml    # Docker Compose setup
-├── package.json          # NPM dependencies and scripts
-
+- Node.js
+- Express.js
+- PostgreSQL (with SQL migrations)
+- Docker (for containerization)
+- JWT & Bcrypt for authentication
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js (v14+ recommended)
-- Docker & Docker Compose (optional, for containerized setup)
-- SQL database (e.g., PostgreSQL, MySQL)
+
+- Node.js (v14 or higher)
+- npm
+- Docker & Docker Compose (for containerized setup)
 
 ### Installation
+
 1. Clone the repository:
-   
-   git clone <repo-url>
-   cd academic-management-platform-backend
-   
+	```sh
+	git clone https://github.com/umarfaroukpa/AcademyHub-backend.git
+	cd academic-management-platform-backend
+	```
 2. Install dependencies:
-   
-   npm install
-   
-3. Configure environment variables (create a `.env` file as needed).
-4. Set up the database using `src/database-schema.sql` and `database/migrate.js`.
+	```sh
+	npm install
+	```
+3. Set up environment variables:
+	- Copy `.env.example` to `.env` and fill in your configuration.
+4. (Optional) Run database migrations:
+	```sh
+	node database/migrate.js
+	```
 
-### Running the Server
-- Locally:
-  
-  npm run dev
-  
-- With Docker:
-  
-  docker-compose up --build
+### Running the Application
 
+#### With Docker
+```sh
+docker-compose up --build
+```
+
+#### Without Docker
+```sh
+npm run dev
+```
+
+The server will start on the port specified in your `.env` file (default: 3000).
+
+## Project Structure
+
+```
+src/
+  config/           # Configuration files
+  controllers/      # Route controllers
+  libs/             # Utility libraries (JWT, bcrypt)
+  middleware/       # Express middleware (auth, RBAC)
+  register/         # Auth registration/login logic
+  routes/           # API route definitions
+  database-schema.sql # SQL schema
+uploads/            # Uploaded files (avatars, assignments)
+database/           # Migration scripts
+```
 
 ## API Endpoints
-See the `src/routes/` directory for available endpoints. Main features include:
+
+Refer to the route files in `src/routes/` for available endpoints. Common endpoints include:
+
 - `/api/auth` - Authentication
 - `/api/courses` - Course management
-- `/api/assignments` - Assignments
-- `/api/enrollments` - Enrollments
-- `/api/submissions` - Submissions
-- `/api/admin` - Admin stats
+- `/api/assignments` - Assignment management
+- `/api/enrollments` - Enrollment management
+- `/api/submissions` - Assignment submissions
+- `/api/admin` - Admin statistics
 
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/YourFeature`)
+3. Commit your changes (`git commit -m 'Add some feature'`)
+4. Push to the branch (`git push origin feature/YourFeature`)
+5. Open a pull request
 
 ## License
-[MIT](LICENSE)
+
+This project is licensed under the MIT License.
+
+## Contact
+
+For questions or support, please open an issue or contact the maintainer [umarfaroukpa](https://github.com/umarfaroukpa).
