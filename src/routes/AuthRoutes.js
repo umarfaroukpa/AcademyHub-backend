@@ -8,9 +8,11 @@ const router = express.Router();
 // Rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10, // Increased for OAuth flows
+  max: 100, // Increased for OAuth flows
   message: { error: 'Too many authentication attempts' },
   standardHeaders: true,
+  //skip for development environment
+  skip: (req) => process.env.NODE_ENV === 'development'
 });
 
 router.use(authLimiter);

@@ -8,10 +8,13 @@ const DEVELOPER_CONFIG = {
   allowedEmails: [
     'admin@academihub.com',
     'developer@academihub.com', 
-    'administrator@academihub.com'
-    // Add more developer/admin emails here
+    'administrator@academihub.com',
+    'yasmarfaq@yahoo.com',      
+    'yasmarfaq51@gmail.com',
+    'yahayanepa@yahoo.com',
+    'gabasawa@yahoo.com'
   ],
-  secretCode: 'ADMIN_ACCESS_2024' // Change this as needed
+  secretCode: 'ADMIN_ACCESS_2025' 
 };
 
 // Input validation middleware
