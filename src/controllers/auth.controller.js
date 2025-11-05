@@ -37,10 +37,13 @@ const login = async (req, res) => {
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('🔴 Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { email, password } = req.body;
+
+    console.log('🔐 Login attempt for:', email);
 
     // Case-insensitive email search
     const result = await pool.query(
@@ -49,16 +52,30 @@ const login = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      // Generic error message to prevent user enumeration
+      console.log('🔴 User not found:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const user = result.rows[0];
+    
+    // Check if password_hash exists (for Google OAuth users)
+    if (!user.password_hash) {
+      console.log('🔴 No password set for user (might be Google OAuth):', email);
+      return res.status(401).json({ error: 'Invalid credentials. Please use Google Sign-In.' });
+    }
+
     const validPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!validPassword) {
+      console.log('🔴 Invalid password for:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // Update last login
+    await pool.query(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      [user.id]
+    );
 
     // Secure token generation
     const token = jwt.sign(
@@ -68,8 +85,10 @@ const login = async (req, res) => {
         role: user.role 
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
+
+    console.log('✅ Login successful for:', email);
 
     res.json({
       token,
@@ -82,6 +101,7 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error('🔴 Login error:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({ error: 'Authentication failed' });
   }
 };
@@ -91,12 +111,18 @@ const signup = async (req, res) => {
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('🔴 Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { email, password, name, role = 'student', developerCode } = req.body;
 
-    console.log('🔐 Signup attempt:', { email, role, name: name ? 'provided' : 'missing' });
+    console.log('🔐 Signup attempt:', { 
+      email, 
+      role, 
+      name: name ? 'provided' : 'missing',
+      hasDeveloperCode: !!developerCode 
+    });
 
     // Role validation with admin restrictions
     let userRole = 'student'; // Default role
@@ -107,6 +133,7 @@ const signup = async (req, res) => {
       const isDeveloperEmail = DEVELOPER_CONFIG.allowedEmails.includes(email.toLowerCase());
       
       if (!isValidDeveloperCode && !isDeveloperEmail) {
+        console.log('🔴 Admin registration denied for:', email);
         return res.status(403).json({ 
           error: 'Admin registration requires developer authorization. Please contact system administrator.' 
         });
@@ -130,6 +157,7 @@ const signup = async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
+      console.log('🔴 User already exists:', email);
       return res.status(409).json({ error: 'User already exists with this email' });
     }
 
@@ -137,14 +165,18 @@ const signup = async (req, res) => {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
+    console.log('💾 Creating user in database...');
+
     // Create user
     const result = await pool.query(
-      'INSERT INTO users (email, password_hash, name, role, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role, is_active',
-      [email.toLowerCase(), passwordHash, name, userRole, true]
+      `INSERT INTO users (email, password_hash, name, role, is_active, email_verified) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
+       RETURNING id, email, name, role, is_active`,
+      [email.toLowerCase(), passwordHash, name, userRole, true, false]
     );
 
     const user = result.rows[0];
-    console.log('✅ User created:', { id: user.id, email: user.email, role: user.role });
+    console.log('✅ User created successfully:', { id: user.id, email: user.email, role: user.role });
 
     // Generate token
     const token = jwt.sign(
@@ -154,7 +186,7 @@ const signup = async (req, res) => {
         role: user.role 
       },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({
@@ -169,12 +201,15 @@ const signup = async (req, res) => {
     });
   } catch (error) {
     console.error('🔴 Signup error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error detail:', error.detail);
+    console.error('Stack:', error.stack);
     
     if (error.code === '23505') { // Unique violation
       return res.status(409).json({ error: 'User already exists with this email' });
     }
     
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
 };
 
