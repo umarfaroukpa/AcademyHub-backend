@@ -1,22 +1,22 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
-const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
+// ✅ Use DATABASE_URL for Render, fallback to individual vars for local dev
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'university',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
+  connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || 'postgres'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'university'}`,
+  ssl: process.env.DATABASE_URL ? {
+    rejectUnauthorized: false
+  } : false
 });
 
 async function runFullMigration() {
   const client = await pool.connect();
   
   try {
-    console.log('🚀 Starting complete database migration...\n');
+    console.log('🚀 Starting complete database migration...');
+    console.log('📍 Database connection:', process.env.DATABASE_URL ? 'Using DATABASE_URL' : 'Using individual env vars');
+    console.log('');
     
     await client.query('BEGIN');
 
@@ -322,6 +322,7 @@ async function runFullMigration() {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('\n❌ Migration failed:', error.message);
+    console.error('Error code:', error.code);
     console.error('Stack trace:', error.stack);
     throw error;
   } finally {
